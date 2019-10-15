@@ -59,6 +59,12 @@ def _p_hops(recv_header, req_subdir):
     return hops_log, next_hops, next_hop_url
 
 
+def _get_fmt(hops_log, user_request_fmt):
+    if user_request_fmt:    # Respect user hard code
+        return user_request_fmt
+    return 'html' if len(hops_log) == 1 else 'json'
+
+
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def entry(path: str):
@@ -67,7 +73,8 @@ def entry(path: str):
         return '', 404
     hops_log, next_hops, next_hop_url = _p_hops(request.headers.get(ENV.HEADER_REQ_LOG, ''), path)
 
-    fmt = 'html' if len(hops_log) == 1 else 'json'
+    fmt = _get_fmt(hops_log, request.headers.get(ENV.HEADER_REQ_FMT, ''))
+
     if not next_hop_url:    # Final hop
         hops_log[-1]['status'] = 200
         return _materialize_response(None, hops_log, fmt=fmt)
