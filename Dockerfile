@@ -11,4 +11,4 @@ WORKDIR /app
 COPY . /app
 
 RUN pip install -r requirements.txt
-CMD ["sh", "-c", "gunicorn -b ${FC_SVC_HOST}:${FC_SVC_PORT} -w 4 fc:app"]
+CMD ["sh", "-c", "gunicorn -b ${FC_SVC_HOST}:${FC_SVC_PORT} -w 4 chain:app"]
