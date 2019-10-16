@@ -8,61 +8,9 @@ from flask import Flask, request, jsonify
 svc_name = ENV.SVC_NAME
 svc_secret = ENV.SVC_SECRET
 
-logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=int(ENV.LOG_LEVEL))
 log = logging.getLogger(svc_name)
 app = Flask(svc_secret)
-
-
-def _svc_log(svc=svc_name, status=None):
-    return {'service_name': svc, 'status': status}
-
-
-def _svc_log_header(hops_path, next_hops, received_header):
-    hops_log = []
-    if received_header:     # Process previous hops
-        log_byte = base64.b64decode(received_header)
-        hops_log = json.loads(log_byte)
-
-    if len(hops_path) == 1:
-        # Requesting coming directly from user, supplement request path for user
-        hops_log.append(_svc_log(svc_name))
-
-    if len(next_hops) == 0:
-        hops_log[-1]['status'] = 200
-        return hops_log, None
-    # Append current outgoing pending request
-    hops_log.append(_svc_log(next_hops[0]))
-    return hops_log, base64.b64encode(json.dumps(hops_log).encode('utf-8'))
-
-
-def _p_hops(recv_header, req_subdir):
-    next_hops = req_subdir.split('/') if req_subdir else []
-    log.debug(f'Future Hops to visit: {next_hops}')
-    hops_log = []
-    if recv_header:     # Decode Previous Hops Log
-        log_byte = base64.b64decode(recv_header)
-        hops_log = json.loads(log_byte)
-
-    hops_log.append(_svc_log(svc_name))
-
-    if len(next_hops) == 0:     # Final request hop
-        return hops_log, [], None
-
-    next_hop_host = next_hops[0]
-    if app.debug:
-        next_hop_host = request.host    # Debugging map all 'microservices' to local
-        if request.path == '/dead':
-            next_hop_host = '34.95.119.80/bar-api.bar'
-
-    next_hop_subdir = '/'.join(next_hops[1:])
-    next_hop_url = f'{ENV.PROTOCOL}://{next_hop_host}/{next_hop_subdir}'
-    return hops_log, next_hops, next_hop_url
-
-
-def _get_fmt(hops_log, user_request_fmt):
-    if user_request_fmt:    # Respect user hard code
-        return user_request_fmt
-    return 'html' if len(hops_log) == 1 else 'json'
 
 
 @app.route('/', defaults={'path': ''})
@@ -98,6 +46,11 @@ def entry(path: str):
     log.debug(f'Next Hop {next_hop_resp_code} Response {next_hop_resp}')
     hops_log.append(_svc_log(next_hops[0], next_hop_resp_code))
     return _materialize_response(next_hop_resp, hops_log, fmt=fmt)
+
+
+@app.route('/healthz')
+def health_check():
+    return 'ping'
 
 
 @app.route('/xkcd')
@@ -186,3 +139,55 @@ def __generate_svg(hop_path):
     resp += ''.join(network_path)
     resp += "</svg>"
     return resp
+
+
+def _svc_log(svc=svc_name, status=None):
+    return {'service_name': svc, 'status': status}
+
+
+def _svc_log_header(hops_path, next_hops, received_header):
+    hops_log = []
+    if received_header:     # Process previous hops
+        log_byte = base64.b64decode(received_header)
+        hops_log = json.loads(log_byte)
+
+    if len(hops_path) == 1:
+        # Requesting coming directly from user, supplement request path for user
+        hops_log.append(_svc_log(svc_name))
+
+    if len(next_hops) == 0:
+        hops_log[-1]['status'] = 200
+        return hops_log, None
+    # Append current outgoing pending request
+    hops_log.append(_svc_log(next_hops[0]))
+    return hops_log, base64.b64encode(json.dumps(hops_log).encode('utf-8'))
+
+
+def _p_hops(recv_header, req_subdir):
+    next_hops = req_subdir.split('/') if req_subdir else []
+    log.debug(f'Future Hops to visit: {next_hops}')
+    hops_log = []
+    if recv_header:     # Decode Previous Hops Log
+        log_byte = base64.b64decode(recv_header)
+        hops_log = json.loads(log_byte)
+
+    hops_log.append(_svc_log(svc_name))
+
+    if len(next_hops) == 0:     # Final request hop
+        return hops_log, [], None
+
+    next_hop_host = next_hops[0]
+    if app.debug:
+        next_hop_host = request.host    # Debugging map all 'microservices' to local
+        if request.path == '/dead':
+            next_hop_host = '34.95.119.80/bar-api.bar'
+
+    next_hop_subdir = '/'.join(next_hops[1:])
+    next_hop_url = f'{ENV.PROTOCOL}://{next_hop_host}/{next_hop_subdir}'
+    return hops_log, next_hops, next_hop_url
+
+
+def _get_fmt(hops_log, user_request_fmt):
+    if user_request_fmt:    # Respect user hard code
+        return user_request_fmt
+    return 'html' if len(hops_log) == 1 else 'json'

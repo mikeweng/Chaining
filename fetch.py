@@ -1,6 +1,7 @@
 import requests
 import os
 import sys
+from json.decoder import JSONDecodeError
 from collections import defaultdict
 
 
@@ -52,9 +53,24 @@ def fetch(stat, url):
     if not url.startswith('http'):
         url = f'http://{url}'
 
-    resp = requests.get(url, headers={'X-Chain-Fmt': 'json'})
-    r_json = resp.json()
-    stat.process_resp(resp.status_code, r_json.get('service_secret', 'error'))
+    try:
+        resp = requests.get(
+            url,
+            headers={'X-Chain-Fmt': 'json'},
+            timeout=2
+        )
+        r_json = resp.json()
+        secret = r_json.get('service_secret', 'n/a')
+        resp_code = resp.status_code
+    except requests.exceptions.Timeout:
+        secret = 'connection_timeout'
+        resp_code = 408
+    except JSONDecodeError:
+        # Upstream error
+        secret = 'connection_error'
+        resp_code = 503
+
+    stat.process_resp(resp_code, secret)
 
 
 def forever(url):

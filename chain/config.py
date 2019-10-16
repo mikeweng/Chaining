@@ -20,4 +20,5 @@ class ENV(object):
 
     SVC_NAME = os.environ.get('FC_SVC_NAME', 'default')
     SVC_SECRET = os.environ.get('FC_SVC_SECRET', 'default_secret')
-
+    # mirror logging log levels, 10 DEBUG, 20 INFO, 30 WARNING
+    LOG_LEVEL = os.environ.get('FC_LOG_LEVEL', 10)
