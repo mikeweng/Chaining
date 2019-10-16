@@ -31,8 +31,11 @@ class Stat(object):
         print(f"""
 Fetch Checkpoint Stats
 
-Total Request: {total}
-Current Sample: {self._prev_num_total} ~ {total}
+Total Requests: {total}
+> Success (200) Requests: {round(self._http_200 * 100 /total, 2)}%
+> Failure (non-200) Requests: {round(self._http_err * 100 /total, 2)}%  
+
+Current Sample Bucket: {self._prev_num_total} ~ {total}
 
 Secrets Seen: {','.join(self._secrets)}
 -----------------------------""")
